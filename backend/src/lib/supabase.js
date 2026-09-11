@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -12,8 +13,11 @@ if (!supabaseUrl || !supabaseServiceKey) {
   );
 }
 
-// Service role key bypasses RLS — this client should ONLY ever be used
-// server-side. Never send this key to the frontend.
+// Explicitly using node-fetch instead of Node's built-in fetch (undici).
+// Node's built-in fetch has a known intermittent issue on some Windows
+// networks where POST/insert requests fail with a bare "TypeError: fetch
+// failed" while GET/RPC requests succeed — node-fetch avoids it.
 export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { persistSession: false },
+  global: { fetch },
 });
