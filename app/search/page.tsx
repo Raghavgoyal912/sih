@@ -358,15 +358,38 @@ export default function SearchPage() {
                       <span className="text-[11px] font-mono font-bold text-secondary bg-secondary/10 px-2 py-0.5 rounded">
                         Relevance: {(result.score * 100).toFixed(1)}%
                       </span>
+                      {result.metadata?.is_real_source && (
+                        <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[13px]">verified</span>
+                          Verified source
+                        </span>
+                      )}
                     </div>
-
-                    <h3 className="text-base md:text-lg font-bold text-primary mb-2 font-serif hover:text-secondary transition-colors cursor-pointer">
+ 
+                    <h3 className="text-base md:text-lg font-bold text-primary mb-2 font-serif">
                       {result.title}
                     </h3>
-
-                    <p className="text-xs md:text-sm text-on-surface-variant leading-relaxed">
+ 
+                    <p className="text-xs md:text-sm text-on-surface-variant leading-relaxed mb-3">
                       {result.snippet}
                     </p>
+ 
+                    {result.metadata?.source_url && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-surface-container/60">
+                        <span className="text-[11px] text-on-surface-variant italic">
+                          {result.metadata.source_name || 'External source'}
+                        </span>
+                        <a
+                          href={result.metadata.source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary font-bold hover:text-secondary flex items-center gap-1 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                          <span>View Source</span>
+                        </a>
+                      </div>
+                    )}
                   </article>
                 ))}
               </div>
