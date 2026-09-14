@@ -32,11 +32,42 @@ function polygonToLatLngs(coordinates: number[][][]): [number, number][] {
   return coordinates[0].map(([lon, lat]) => toLatLng([lon, lat]));
 }
 
-// Re-centers the map whenever the district's data first loads
-function FitToData({ layers }: { layers: Layers }) {
+// Handles both Polygon and MultiPolygon district boundaries — returns an
+// array of rings (one per polygon "part"), since a district can legitimately
+// be made of multiple disconnected areas.
+function boundaryToLatLngRings(geometry: { type: string; coordinates: any }): [number, number][][] {
+  if (geometry.type === "Polygon") {
+    return [polygonToLatLngs(geometry.coordinates)];
+  }
+  if (geometry.type === "MultiPolygon") {
+    return geometry.coordinates.map((poly: number[][][]) => polygonToLatLngs(poly));
+  }
+  return [];
+}
+
+// Re-centers the map whenever the selected district or its data changes
+function FitToData({
+  districtBoundary,
+  layers,
+}: {
+  districtBoundary: { geometry: { type: string; coordinates: any } } | null;
+  layers: Layers;
+}) {
   const map = useMap();
 
   useEffect(() => {
+    // Prefer fitting to the real district boundary itself — this is what
+    // should drive the view for any district, seeded with sample data or not.
+    if (districtBoundary) {
+      const rings = boundaryToLatLngRings(districtBoundary.geometry);
+      const allPoints = rings.flat();
+      if (allPoints.length > 0) {
+        map.fitBounds(allPoints as any, { padding: [30, 30] });
+        return;
+      }
+    }
+
+    // Fallback: fit to whatever sample layers exist, if no boundary yet
     const allPoints: [number, number][] = [];
     [...layers.parcel, ...layers.zone].forEach((f) => {
       if (f.geometry.type === "Polygon") {
@@ -50,24 +81,26 @@ function FitToData({ layers }: { layers: Layers }) {
     if (allPoints.length > 0) {
       map.fitBounds(allPoints as any, { padding: [30, 30] });
     }
-  }, [layers, map]);
+  }, [districtBoundary, layers, map]);
 
   return null;
 }
 
 export default function GeodataMap({
+  districtBoundary,
   layers,
   activeLayers,
   onSelectFeature,
   selectedFeatureId,
 }: {
+  districtBoundary: { geometry: { type: string; coordinates: any } } | null;
   layers: Layers;
   activeLayers: ActiveLayers;
   onSelectFeature: (feature: GeoFeature) => void;
   selectedFeatureId: string | null;
 }) {
-  // Fallback center (Sonipat, Haryana) used only until real data loads and fits bounds
-  const defaultCenter: [number, number] = [29.0, 77.02];
+  // Fallback center (roughly central India) used only until real data loads and fits bounds
+  const defaultCenter: [number, number] = [22.5, 79.0];
 
   return (
     <MapContainer
@@ -81,7 +114,21 @@ export default function GeodataMap({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      <FitToData layers={layers} />
+      <FitToData districtBoundary={districtBoundary} layers={layers} />
+
+      {districtBoundary &&
+        boundaryToLatLngRings(districtBoundary.geometry).map((ring, i) => (
+          <Polygon
+            key={`boundary-${i}`}
+            positions={ring}
+            pathOptions={{
+              color: "#0f2942",
+              weight: 2.5,
+              fillOpacity: 0,
+              dashArray: "6 4",
+            }}
+          />
+        ))}
 
       {activeLayers.zone &&
         layers.zone.map((feature) => (

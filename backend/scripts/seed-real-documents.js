@@ -1,11 +1,15 @@
-// Seeds 7 REAL, citable land governance documents into Supabase, replacing
-// the earlier synthetic/demo document set. Each "content" field is an
-// ORIGINAL SUMMARY written from the real source (not copied text) — the
-// real source_url is stored in metadata so anyone can verify or read the
-// original document.
+// Replaces the fabricated "Sonipat District (Demo)" boundary with the REAL
+// Sonipat district boundary from OpenStreetMap-derived open data (via the
+// udit-001/india-maps-data public GeoJSON repository).
 //
-// Run from inside the backend/ folder (needs your existing .env):
-//   node scripts/seed-real-documents.js
+// Per your decision: real district boundary + illustrative zones, NO fake
+// parcels (since real parcel-level cadastral data isn't publicly available
+// in India — that's the exact gap DILRMP/ULPIN is meant to eventually close).
+// Hotspots are kept but clearly labeled "illustrative_sample" rather than
+// pretending to be real dispute records.
+//
+// Run from inside the backend/ folder:
+//   node scripts/seed-real-geodata.js
 
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
@@ -15,164 +19,138 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const ORG_ID = 'aa111111-1111-1111-1111-111111111111'; // Ministry of Lands (demo org)
+const OLD_DEMO_DISTRICT_ID = 'cc333333-3333-3333-3333-333333333333';
+const NEW_DISTRICT_ID = 'dd444444-4444-4444-4444-444444444444';
 
-// Titles from the OLD synthetic seed — deleted first so we don't end up
-// with a mix of fabricated and real documents.
-const OLD_SYNTHETIC_TITLES = [
-  'Urban Land Dispute Reduction Strategies in Rapidly Growing Districts',
-  'Customary Tenure Reform: A 2024 Policy Review',
-  'Agrarian Land Ceiling Exemptions: Impact on Smallholder Farmers',
-  'Tribal Tenancy Alienation and Constitutional Safeguards',
-  'ULPIN Boundary Dispute Resolution: A Digital Cadastre Case Study',
-  'Registration Fee Reduction and Formal Land Transaction Uptake',
-  'Land-Use Change Monitoring Through Satellite and Drone Data Fusion',
-  'Row Level Security Models for Multi-Agency Land Data Platforms',
-  'Microsimulation Approaches to Land Policy Impact Forecasting',
-  'Community Verification Inquests: Procedural Guidelines',
-  'Digital Public Infrastructure Principles Applied to Land Records',
-  'Cross-Agency Collaboration Models for Land Governance Research',
-];
+const HARYANA_GEOJSON_URL =
+  'https://cdn.jsdelivr.net/gh/udit-001/india-maps-data@2884453/geojson/states/haryana.geojson';
 
-const realDocuments = [
-  {
-    title: 'Digital India Land Records Modernisation Programme (DILRMP) — Official Overview',
-    content:
-      'DILRMP was launched in 2008 by merging two earlier schemes — Computerisation of Land Records and Strengthening of Revenue Administration & Updating of Land Records — with the goal of shifting India from a manual, presumptive land-title system to a digital, conclusive one. Key components include ULPIN (Bhu-Aadhaar), a 14-digit geo-coded Unique Land Parcel Identification Number now adopted across 29 states and UTs; the National Generic Document Registration System, a unified e-registration platform for deeds; and e-Court integration linking land records to the judiciary for faster dispute resolution. As of recent government reporting, over 95% of rural Record of Rights entries nationwide have been computerised.',
-    tags: ['DILRMP', 'ULPIN', 'digital land records'],
-    sourceUrl: 'https://dolr.gov.in/en/programmes-schemes/dilrmp-2/',
-    sourceName: 'Department of Land Resources, Ministry of Rural Development (dolr.gov.in)',
-  },
-  {
-    title: 'Land Policies for Growth and Poverty Reduction (World Bank Policy Research Report)',
-    content:
-      'This World Bank report argues that secure land tenure improves welfare for the poor — particularly women, whose land rights are often neglected — while creating the investment incentives needed for sustainable growth. It examines multiple mechanisms for strengthening tenure security, weighing their trade-offs, and emphasizes the importance of low-cost land exchange through both rental markets and non-market channels such as inheritance in expanding access for land-poor producers. The report is frequently cited as a foundational reference in land tenure policy design across developing economies.',
-    tags: ['land tenure', 'World Bank', 'policy research'],
-    sourceUrl: 'https://documents1.worldbank.org/curated/en/485171468309336484/pdf/multi0page.pdf',
-    sourceName: 'World Bank Policy Research Report',
-  },
-  {
-    title: 'Urban Land (Ceiling and Regulation) Act, 1976: Impact of Repeal on Housing and Land Supply',
-    content:
-      'The Urban Land Ceiling and Regulation Act (ULCRA), enacted in 1976 across major states, aimed to curb land speculation and address urban housing shortages by capping vacant urban landholdings. In practice, it was widely criticised for locking up land in litigation and bureaucratic delay rather than freeing it for development. Parliament repealed the Act nationally in 1999, though individual states adopted the repeal on their own timelines (Haryana in 1999, Maharashtra only in 2007). Post-repeal analyses consistently find increased urban land supply, reduced ceiling-related litigation, and accelerated real estate investment in states that repealed earliest.',
-    tags: ['urban land ceiling', 'ULCRA', 'housing policy'],
-    sourceUrl:
-      'https://ccs.in/sites/default/files/2022-10/Urban%20Land%20Ceiling%20Act,%201976%20A%20Critical%20Analysis%20of%20Impact%20on%20Housing.pdf',
-    sourceName: 'Centre for Civil Society',
-  },
-  {
-    title: 'Samatha v. State of Andhra Pradesh (1997): Tribal Land Alienation and the Fifth Schedule',
-    content:
-      'In this landmark ruling, the Supreme Court of India held that government, forest, and tribal lands within Fifth Schedule Scheduled Areas cannot be leased to non-tribal persons or private companies, including for mining operations. The Court reasoned that the state itself qualifies as a "person" barred from transferring such land under the Fifth Schedule, and voided mining leases the Andhra Pradesh government had granted to non-tribal companies. The judgment remains the leading constitutional precedent protecting customary tribal landholding from alienation, and has faced sustained political pressure for dilution in the decades since.',
-    tags: ['tribal land', 'Fifth Schedule', 'Supreme Court', 'constitutional law'],
-    sourceUrl:
-      'https://www.escr-net.org/caselaw/2020/samatha-vs-state-ap-and-ors-air-1997-sc-3297-jt-1997-6-sc-449-1997-4-scale-746/',
-    sourceName: 'AIR 1997 SC 3297 (via ESCR-Net case law database)',
-  },
-  {
-    title: "DILRMP Implementation in Rajasthan: Legal and Administrative Assessment",
-    content:
-      "A field study by India's National Institute of Public Finance and Policy (NIPFP) examining the legal and administrative instruments governing land administration in Rajasthan, and how they interact with DILRMP's rollout. The study identifies gaps between the scheme's goal of conclusive digital titling and the state's continuing reliance on manual, presumptive record-keeping practices, and offers recommendations for strengthening revenue administration capacity and record integration.",
-    tags: ['DILRMP', 'Rajasthan', 'state implementation'],
-    sourceUrl: 'https://macrofinance.nipfp.org.in/releases/DILRMP.html',
-    sourceName: 'National Institute of Public Finance and Policy (NIPFP)',
-  },
-  {
-    title: "Assessing DILRMP's Impact in Himachal Pradesh and Maharashtra",
-    content:
-      'A comparative field assessment of DILRMP digitisation progress across Himachal Pradesh and Maharashtra. The study finds that digitising land records alone does not resolve underlying disputes when the source records themselves contain longstanding inaccuracies — digitisation can simply make old errors more visible rather than correcting them. It recommends giving states greater flexibility in how they spend DILRMP funds, tailored to their specific administrative bottlenecks, rather than a uniform national approach.',
-    tags: ['DILRMP', 'impact assessment', 'Himachal Pradesh', 'Maharashtra'],
-    sourceUrl:
-      'https://www.ideasforindia.in/topics/miscellany/digital-india-land-records-modernisation-programme-assessing-impact-in-himachal-pradesh-and-maharashtra.html',
-    sourceName: 'Ideas for India',
-  },
-  {
-    title: 'Stamp Duty Reduction and Property Registration Uptake: State-Level Evidence',
-    content:
-      "Multiple Indian states have used temporary stamp duty and circle-rate reductions to encourage formal property registration. West Bengal's mid-2021 cut — a 2% stamp duty reduction paired with a 10% circle-rate reduction — was followed by a 64% year-on-year increase in Kolkata property registrations, with 56% of that year's registered units filed after the cut took effect. Delhi and Karnataka have implemented comparable measures. The 2024 Union Budget explicitly encouraged states to further moderate stamp duty rates as a formalization tool, with additional incentives proposed for properties purchased by women.",
-    tags: ['stamp duty', 'registration', 'formalization'],
-    sourceUrl: 'https://www.kanakkupillai.com/learn/stamp-duty-and-registration-charges-india/',
-    sourceName: 'State stamp duty notifications, compiled via Kanakkupillai / Deccan Herald (Union Budget 2024 coverage)',
-  },
-];
+// Returns [minLon, minLat, maxLon, maxLat] for a Polygon's outer ring
+function getBBox(coordinates) {
+  const ring = coordinates[0];
+  const lons = ring.map((p) => p[0]);
+  const lats = ring.map((p) => p[1]);
+  return [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)];
+}
 
-async function embedText(text) {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${GEMINI_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'models/gemini-embedding-001',
-        content: { parts: [{ text }] },
-        outputDimensionality: 768,
-      }),
-    }
+async function main() {
+  console.log('Fetching real Haryana district boundaries from OpenStreetMap-derived data...');
+  const res = await fetch(HARYANA_GEOJSON_URL);
+  if (!res.ok) throw new Error(`Failed to fetch Haryana GeoJSON: ${res.status}`);
+  const haryana = await res.json();
+
+  const sonipatFeature = haryana.features.find(
+    (f) => f.properties.district?.toLowerCase() === 'sonipat'
   );
-  if (!res.ok) {
-    throw new Error(`Embedding failed: ${res.status} ${await res.text()}`);
-  }
-  const data = await res.json();
-  return data.embedding.values;
-}
-
-async function seed() {
-  console.log('Removing old synthetic demo documents...');
-  const { error: deleteError, count } = await supabase
-    .from('documents')
-    .delete({ count: 'exact' })
-    .in('title', OLD_SYNTHETIC_TITLES);
-
-  if (deleteError) {
-    console.error('  Warning: failed to delete old documents:', deleteError.message);
-  } else {
-    console.log(`  Removed ${count ?? 0} old synthetic documents.`);
+  if (!sonipatFeature) {
+    throw new Error('Could not find Sonipat in the fetched dataset — check the source file.');
   }
 
-  console.log(`\nSeeding ${realDocuments.length} real, sourced documents...`);
+  console.log('Found real Sonipat district boundary. Bounding box:', getBBox(sonipatFeature.geometry.coordinates));
 
-  for (const doc of realDocuments) {
-    const { data: existing } = await supabase
-      .from('documents')
-      .select('id')
-      .eq('title', doc.title)
-      .maybeSingle();
+  // --- Step 1: remove the old fabricated demo district + its layers ---
+  console.log('\nRemoving old fabricated demo district and its geodata layers...');
+  await supabase.from('geodata_layers').delete().eq('org_id', ORG_ID); // clears old fake parcels/hotspots/zones
+  await supabase.from('districts').delete().eq('id', OLD_DEMO_DISTRICT_ID);
 
-    if (existing) {
-      console.log(`  - Skipping (already exists): ${doc.title}`);
-      continue;
-    }
+  // --- Step 2: insert the REAL Sonipat district boundary ---
+  console.log('Inserting real Sonipat district boundary...');
+  const boundaryGeoJSON = JSON.stringify(sonipatFeature.geometry);
 
-    console.log(`  - Embedding: ${doc.title}`);
-    const embedding = await embedText(`${doc.title}\n\n${doc.content}`);
+  const { error: districtError } = await supabase.rpc('insert_district_from_geojson', {
+    p_id: NEW_DISTRICT_ID,
+    p_org_id: ORG_ID,
+    p_name: 'Sonipat District',
+    p_geojson: boundaryGeoJSON,
+    p_metadata: { state: 'Haryana', source: 'OpenStreetMap (via india-maps-data)', is_real_boundary: true },
+  });
 
-    const { error } = await supabase.from('documents').insert({
-      org_id: ORG_ID,
-      title: doc.title,
-      content: doc.content,
-      metadata: {
-        tags: doc.tags,
-        source_url: doc.sourceUrl,
-        source_name: doc.sourceName,
-        is_real_source: true,
+  if (districtError) {
+    console.error('  FAILED to insert district:', districtError.message);
+    console.error('  Make sure you ran supabase/migrations/014_insert_district_function.sql first.');
+    process.exit(1);
+  }
+  console.log('  Real district boundary inserted.');
+
+  // --- Step 3: illustrative land-use zones, honestly labeled ---
+  // These are NOT official zoning data (India has no public parcel-level
+  // zoning dataset) — they're plausible sub-areas within the REAL boundary,
+  // clearly marked so nobody mistakes them for government records.
+  const [minLon, minLat, maxLon, maxLat] = getBBox(sonipatFeature.geometry.coordinates);
+  const midLon = (minLon + maxLon) / 2;
+  const midLat = (minLat + maxLat) / 2;
+
+  console.log('\nInserting illustrative land-use zones (clearly labeled, not official data)...');
+  const zones = [
+    {
+      layer_type: 'zone',
+      properties: {
+        zone_type: 'agricultural (illustrative)',
+        is_illustrative: true,
+        note: 'Approximate sub-area for demo purposes — not official government zoning data',
       },
-      embedding,
+      geomGeoJSON: {
+        type: 'Polygon',
+        coordinates: [[[minLon, minLat], [midLon, minLat], [midLon, midLat], [minLon, midLat], [minLon, minLat]]],
+      },
+    },
+    {
+      layer_type: 'zone',
+      properties: {
+        zone_type: 'urban_expansion (illustrative)',
+        is_illustrative: true,
+        note: 'Approximate sub-area for demo purposes — not official government zoning data',
+      },
+      geomGeoJSON: {
+        type: 'Polygon',
+        coordinates: [[[midLon, midLat], [maxLon, midLat], [maxLon, maxLat], [midLon, maxLat], [midLon, midLat]]],
+      },
+    },
+  ];
+
+  const hotspots = [
+    {
+      layer_type: 'hotspot',
+      properties: {
+        dispute_type: 'boundary_encroachment (illustrative sample)',
+        status: 'active',
+        is_illustrative: true,
+      },
+      geomGeoJSON: { type: 'Point', coordinates: [midLon - 0.02, midLat + 0.01] },
+    },
+    {
+      layer_type: 'hotspot',
+      properties: {
+        dispute_type: 'title_dispute (illustrative sample)',
+        status: 'under_review',
+        is_illustrative: true,
+      },
+      geomGeoJSON: { type: 'Point', coordinates: [midLon + 0.02, midLat - 0.01] },
+    },
+  ];
+
+  for (const item of [...zones, ...hotspots]) {
+    const { error } = await supabase.rpc('insert_geodata_from_geojson', {
+      p_org_id: ORG_ID,
+      p_layer_type: item.layer_type,
+      p_properties: item.properties,
+      p_geojson: JSON.stringify(item.geomGeoJSON),
     });
-
     if (error) {
-      console.error(`    FAILED: ${error.message}`);
+      console.error(`  FAILED to insert ${item.layer_type}:`, error.message);
     } else {
-      console.log(`    Inserted.`);
+      console.log(`  Inserted ${item.layer_type}: ${item.properties.zone_type || item.properties.dispute_type}`);
     }
-
-    await new Promise((r) => setTimeout(r, 400));
   }
 
-  console.log('\nDone. All documents now carry real, verifiable source citations.');
+  console.log(
+    `\nDone. Real district boundary is live (id: ${NEW_DISTRICT_ID}).\n` +
+    `Update DEMO_DISTRICT_ID in your frontend GIS page from\n  '${OLD_DEMO_DISTRICT_ID}'\nto\n  '${NEW_DISTRICT_ID}'`
+  );
 }
 
-seed().catch((err) => {
-  console.error('Seed script failed:', err);
+main().catch((err) => {
+  console.error('Script failed:', err);
   process.exit(1);
 });
