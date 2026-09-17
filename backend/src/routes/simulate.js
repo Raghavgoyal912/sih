@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireAuth } from '../middleware/requireAuth.js';
+import { supabase } from '../lib/supabase.js';
 
 const router = Router();
 
@@ -11,7 +11,8 @@ export const simulateSchema = z.object({
 
 /**
  * TRANSPARENT RULE-BASED SIMULATION FORMULA (NOT real microsimulation)
- * See original comment block for full rationale — unchanged from before.
+ * ---------------------------------------------------------------------
+ * Deliberately simple, explainable weighted model for demo purposes.
  */
 export function runSimulation({ landCeilingChangePct, registrationFeeReductionPct }) {
   const disputeReductionPct = Number((landCeilingChangePct * -0.6).toFixed(2));
@@ -24,12 +25,8 @@ export function runSimulation({ landCeilingChangePct, registrationFeeReductionPc
   return { disputeReductionPct, registrationUptakePct, revenueImpactPct, confidenceScore };
 }
 
-// POST /api/simulate — now requires a logged-in user.
-// req.supabase (set by requireAuth) is scoped to the caller's own JWT, so
-// this insert now goes through RLS for real, and org_id/user_id populate
-// from the JWT-backed DEFAULT values set in 004_auth_rbac.sql — no more
-// NULL org_id/user_id like when the service-role key bypassed everything.
-router.post('/', requireAuth, async (req, res, next) => {
+// POST /api/simulate — public, no login required.
+router.post('/', async (req, res, next) => {
   try {
     const parsed = simulateSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -38,7 +35,7 @@ router.post('/', requireAuth, async (req, res, next) => {
     const inputs = parsed.data;
     const outputs = runSimulation(inputs);
 
-    const { data, error } = await req.supabase
+    const { data, error } = await supabase
       .from('simulation_runs')
       .insert({
         inputs,

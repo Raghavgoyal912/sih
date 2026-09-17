@@ -6,6 +6,7 @@ import searchRouter from './routes/search.js';
 import documentsRouter from './routes/documents.js';
 import geodataRouter from './routes/geodata.js';
 import simulateRouter from './routes/simulate.js';
+import workspacesRouter from './routes/workspaces.js';
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.use('/api/search', searchRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/geodata', geodataRouter);
 app.use('/api/simulate', simulateRouter);
+app.use('/api/workspaces', workspacesRouter);
 
 // Central error handler — every route below calls next(err) on failure
 // so errors always come back as consistent JSON instead of crashing.

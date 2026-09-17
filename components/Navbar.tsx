@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { useAuth } from "@/components/AuthProvider";
 
 const NAV_ITEMS = [
   { label: "Home", href: "/" },
@@ -18,8 +17,6 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [fontSizeIndex, setFontSizeIndex] = useState(1);
   const [language, setLanguage] = useState<"EN" | "HI">("EN");
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const { user, loading, signOut } = useAuth();
 
   const fontSizes = ["A-", "A", "A+"];
 
@@ -42,7 +39,6 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
-            {/* Accessibility Font Size Controls */}
             <div className="flex items-center gap-0.5">
               {fontSizes.map((size, idx) => (
                 <button
@@ -63,7 +59,6 @@ export default function Navbar() {
 
             <span className="text-on-primary-container">|</span>
 
-            {/* Language Switcher */}
             <div className="flex items-center gap-1 text-xs">
               <button
                 type="button"
@@ -92,7 +87,6 @@ export default function Navbar() {
       {/* Primary Navigation Bar */}
       <div className="bg-surface-container-lowest/95 backdrop-blur-xl border-b border-surface-container">
         <div className="h-16 max-w-[88rem] mx-auto px-4 lg:px-6 flex items-center justify-between gap-4">
-          {/* Logo & Brand */}
           <Link href="/" className="flex items-center gap-3 shrink-0 group">
             <div className="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center text-secondary-fixed shadow-sm">
               <span className="material-symbols-outlined text-[22px]">account_balance</span>
@@ -107,7 +101,6 @@ export default function Navbar() {
             </div>
           </Link>
 
-          {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center gap-1.5 p-1 bg-surface-container-low rounded-xl border border-surface-container/60">
             {NAV_ITEMS.map((item) => {
               const isActive =
@@ -131,7 +124,6 @@ export default function Navbar() {
             })}
           </nav>
 
-          {/* Right Action Cluster */}
           <div className="flex items-center gap-3 shrink-0">
             <Link
               href="/search"
@@ -148,50 +140,13 @@ export default function Navbar() {
               National Portal Access
             </Link>
 
-            {/* Auth-aware account control */}
-            {loading ? (
-              <div className="w-8 h-8 rounded-full bg-surface-container animate-pulse" />
-            ) : user ? (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setAccountMenuOpen(!accountMenuOpen)}
-                  className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm text-on-primary cursor-pointer hover:ring-2 hover:ring-secondary/50 transition-all"
-                  title={user.email ?? "Account"}
-                >
-                  <span className="material-symbols-outlined text-[18px]">person</span>
-                </button>
+            <div
+              className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm text-on-primary cursor-pointer hover:ring-2 hover:ring-secondary/50 transition-all"
+              title="Government Authorized Officer"
+            >
+              <span className="material-symbols-outlined text-[18px]">person</span>
+            </div>
 
-                {accountMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-surface-container-lowest border border-surface-container rounded-lg shadow-lg py-2 z-50">
-                    <div className="px-3 py-2 border-b border-surface-container">
-                      <p className="text-xs text-on-surface-variant">Signed in as</p>
-                      <p className="text-sm font-semibold text-primary truncate">{user.email}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        signOut();
-                        setAccountMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3 py-2 text-sm text-on-surface hover:bg-surface-container-low transition-colors"
-                    >
-                      Sign out
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary border border-surface-container px-3 py-1.5 rounded-lg hover:bg-surface-container-low transition-colors"
-              >
-                <span className="material-symbols-outlined text-[16px]">login</span>
-                <span>Sign in</span>
-              </Link>
-            )}
-
-            {/* Mobile Hamburger Toggle */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -205,7 +160,6 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-surface-container bg-surface-container-lowest px-4 py-3 space-y-1">
             {NAV_ITEMS.map((item) => {
@@ -229,30 +183,6 @@ export default function Navbar() {
                 </Link>
               );
             })}
-
-            {!loading && !user && (
-              <Link
-                href="/login"
-                onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-sm font-semibold text-primary border border-surface-container mt-1"
-              >
-                Sign in
-              </Link>
-            )}
-
-            {!loading && user && (
-              <button
-                type="button"
-                onClick={() => {
-                  signOut();
-                  setMobileMenuOpen(false);
-                }}
-                className="block w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-on-surface hover:bg-surface-container-low mt-1"
-              >
-                Sign out ({user.email})
-              </button>
-            )}
-
             <div className="pt-2 border-t border-surface-container mt-2">
               <Link
                 href="/collaborate"

@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useAuth } from "@/components/AuthProvider";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
 
 type SimOutputs = {
   disputeReductionPct: number;
@@ -24,137 +22,61 @@ function computeLocalPreview(
   landCeilingChangePct: number,
   registrationFeeReductionPct: number
 ): SimOutputs {
-  const disputeReductionPct = Number(
-    (landCeilingChangePct * -0.6).toFixed(2)
-  );
-
-  const registrationUptakePct = Number(
-    (registrationFeeReductionPct * 0.8).toFixed(2)
-  );
-
+  const disputeReductionPct = Number((landCeilingChangePct * -0.6).toFixed(2));
+  const registrationUptakePct = Number((registrationFeeReductionPct * 0.8).toFixed(2));
   const revenueImpactPct = Number(
-    (
-      registrationFeeReductionPct * -0.5 +
-      registrationUptakePct * 0.3
-    ).toFixed(2)
+    (registrationFeeReductionPct * -0.5 + registrationUptakePct * 0.3).toFixed(2)
   );
-
-  const magnitude =
-    Math.abs(landCeilingChangePct) + registrationFeeReductionPct;
-
-  const confidenceScore = Number(
-    Math.min(0.55 + magnitude * 0.02, 0.85).toFixed(2)
-  );
-
-  return {
-    disputeReductionPct,
-    registrationUptakePct,
-    revenueImpactPct,
-    confidenceScore,
-  };
+  const magnitude = Math.abs(landCeilingChangePct) + registrationFeeReductionPct;
+  const confidenceScore = Number(Math.min(0.55 + magnitude * 0.02, 0.85).toFixed(2));
+  return { disputeReductionPct, registrationUptakePct, revenueImpactPct, confidenceScore };
 }
 
 export default function SimulatePage() {
-  const { session } = useAuth();
-
   const [ceiling, setCeiling] = useState<number>(5);
   const [fee, setFee] = useState<number>(25);
-  const [activePreset, setActivePreset] =
-    useState<string>("Base Scenario");
+  const [activePreset, setActivePreset] = useState<string>("Base Scenario");
+  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [results, setResults] = useState<SimOutputs | null>(null);
+  const [savedFeedback, setSavedFeedback] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [status, setStatus] = useState<
-    "idle" | "loading" | "error"
-  >("idle");
-
-  const [errorMessage, setErrorMessage] =
-    useState<string | null>(null);
-
-  const [results, setResults] =
-    useState<SimOutputs | null>(null);
-
-  const [savedFeedback, setSavedFeedback] =
-    useState<string | null>(null);
-
-  const debounceRef =
-    useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const runSimulation = async (
-    landCeilingChangePct: number,
-    registrationFeeReductionPct: number
-  ) => {
-    // Require logged-in user before calling protected backend route
-    if (!session) {
-      setErrorMessage("Please log in to run simulations.");
-      setStatus("error");
-      return;
-    }
-
+  const runSimulation = async (landCeilingChangePct: number, registrationFeeReductionPct: number) => {
     setStatus("loading");
     setErrorMessage(null);
-
     try {
       const res = await fetch(`${API_BASE}/api/simulate`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(session?.access_token
-            ? {
-                Authorization: `Bearer ${session.access_token}`,
-              }
-            : {}),
-        },
-        body: JSON.stringify({
-          landCeilingChangePct,
-          registrationFeeReductionPct,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ landCeilingChangePct, registrationFeeReductionPct }),
       });
-
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-
-        throw new Error(
-          body.error || `Simulation failed (${res.status})`
-        );
+        throw new Error(body.error || `Simulation failed (${res.status})`);
       }
-
       const data = await res.json();
-
       setResults(data.outputs);
       setStatus("idle");
     } catch (err: any) {
       console.error("Simulation error:", err);
-
-      setErrorMessage(
-        err.message ||
-          "Could not run simulation. Is the backend running?"
-      );
-
+      setErrorMessage(err.message || "Could not run simulation. Is the backend running?");
       setStatus("error");
     }
   };
 
-  const scheduleSimulation = (
-    newCeiling: number,
-    newFee: number
-  ) => {
+  const scheduleSimulation = (newCeiling: number, newFee: number) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-
     debounceRef.current = setTimeout(() => {
       runSimulation(newCeiling, newFee);
     }, 600);
   };
 
-  const handlePreset = (
-    name: string,
-    newCeiling: number,
-    newFee: number
-  ) => {
+  const handlePreset = (name: string, newCeiling: number, newFee: number) => {
     setActivePreset(name);
     setCeiling(newCeiling);
     setFee(newFee);
-
     setResults(computeLocalPreview(newCeiling, newFee));
-
     runSimulation(newCeiling, newFee);
   };
 
@@ -170,10 +92,7 @@ export default function SimulatePage() {
   };
 
   const handleSaveScenario = () => {
-    setSavedFeedback(
-      "Scenario configuration saved to session ledger!"
-    );
-
+    setSavedFeedback("Scenario configuration saved to session ledger!");
     setTimeout(() => setSavedFeedback(null), 3000);
   };
 
@@ -188,24 +107,17 @@ export default function SimulatePage() {
                 <span className="text-[11px] font-mono uppercase tracking-wider text-secondary font-bold bg-secondary/10 px-2 py-0.5 rounded">
                   Analytical Work-Plane
                 </span>
-
-                <span className="text-on-surface-variant font-mono text-xs">
-                  •
-                </span>
-
+                <span className="text-on-surface-variant font-mono text-xs">•</span>
                 <span className="text-xs font-mono text-on-surface-variant">
                   Model: Transparent Rules-Based Estimator
                 </span>
               </div>
-
               <h1 className="text-2xl md:text-3xl font-extrabold text-primary tracking-tight">
                 Cadastral Policy Impact Simulator
               </h1>
-
               <p className="text-xs md:text-sm text-on-surface-variant mt-1 max-w-3xl leading-relaxed">
-                Simulate the projected impact of land ceiling and
-                registration fee changes using a transparent, simplified
-                rules-based model.
+                Simulate the projected impact of land ceiling and registration fee changes using a
+                transparent, simplified rules-based model.
               </p>
             </div>
 
@@ -215,9 +127,7 @@ export default function SimulatePage() {
                 onClick={handleReset}
                 className="px-3.5 py-1.5 rounded-lg bg-surface-container text-primary hover:bg-surface-container-high text-xs font-semibold transition-colors flex items-center gap-1.5"
               >
-                <span className="material-symbols-outlined text-[16px]">
-                  restart_alt
-                </span>
+                <span className="material-symbols-outlined text-[16px]">restart_alt</span>
                 <span>Reset Defaults</span>
               </button>
 
@@ -227,9 +137,7 @@ export default function SimulatePage() {
                 disabled={!results}
                 className="px-3.5 py-1.5 rounded-lg bg-surface-container text-primary hover:bg-surface-container-high text-xs font-semibold transition-colors flex items-center gap-1.5 disabled:opacity-50"
               >
-                <span className="material-symbols-outlined text-[16px]">
-                  bookmark_add
-                </span>
+                <span className="material-symbols-outlined text-[16px]">bookmark_add</span>
                 <span>Save Scenario</span>
               </button>
             </div>
@@ -237,9 +145,7 @@ export default function SimulatePage() {
 
           {savedFeedback && (
             <div className="p-2.5 rounded-lg bg-secondary-container text-on-secondary-container text-xs font-semibold flex items-center gap-2">
-              <span className="material-symbols-outlined text-[16px]">
-                check_circle
-              </span>
+              <span className="material-symbols-outlined text-[16px]">check_circle</span>
               <span>{savedFeedback}</span>
             </div>
           )}
@@ -249,7 +155,6 @@ export default function SimulatePage() {
               <span className="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold mr-1">
                 Presets:
               </span>
-
               {[
                 { name: "Base Scenario", c: 5, f: 25 },
                 { name: "Agrarian Reform 2025", c: -10, f: 35 },
@@ -259,9 +164,7 @@ export default function SimulatePage() {
                 <button
                   key={p.name}
                   type="button"
-                  onClick={() =>
-                    handlePreset(p.name, p.c, p.f)
-                  }
+                  onClick={() => handlePreset(p.name, p.c, p.f)}
                   className={`px-3 py-1 rounded-full text-xs font-semibold transition-all whitespace-nowrap ${
                     activePreset === p.name
                       ? "bg-primary text-on-primary shadow-sm"
@@ -279,23 +182,17 @@ export default function SimulatePage() {
       {/* Main 2-Column Workplane */}
       <div className="max-w-[88rem] mx-auto px-4 lg:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
           {/* Left Column: Policy Levers */}
           <div className="lg:col-span-5 space-y-4">
             <div className="bg-surface-container-lowest rounded-xl border border-surface-container shadow-sm p-6 space-y-6">
-
               <div className="flex items-center justify-between pb-2 border-b border-surface-container">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-secondary text-[20px]">
-                    tune
-                  </span>
-                  <h2 className="text-base font-bold text-primary">
-                    Policy Levers &amp; Scope
-                  </h2>
+                  <span className="material-symbols-outlined text-secondary text-[20px]">tune</span>
+                  <h2 className="text-base font-bold text-primary">Policy Levers &amp; Scope</h2>
                 </div>
               </div>
 
-              {/* Lever 1 */}
+              {/* Lever 1: Land Ceiling Adjustment */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div>
@@ -306,11 +203,8 @@ export default function SimulatePage() {
                       Relative to Statutory Model Cap
                     </span>
                   </div>
-
                   <span className="text-sm font-mono font-bold text-primary bg-surface-container px-2 py-0.5 rounded">
-                    {ceiling >= 0
-                      ? `+${ceiling.toFixed(1)}%`
-                      : `${ceiling.toFixed(1)}%`}
+                    {ceiling >= 0 ? `+${ceiling.toFixed(1)}%` : `${ceiling.toFixed(1)}%`}
                   </span>
                 </div>
 
@@ -329,7 +223,6 @@ export default function SimulatePage() {
                   }}
                   className="w-full accent-primary cursor-pointer"
                 />
-
                 <div className="flex justify-between text-[10px] font-mono text-on-surface-variant">
                   <span>-20%</span>
                   <span>Baseline (0%)</span>
@@ -337,7 +230,7 @@ export default function SimulatePage() {
                 </div>
               </div>
 
-              {/* Lever 2 */}
+              {/* Lever 2: Stamp Duty Fee Reduction */}
               <div className="space-y-2 pt-2 border-t border-surface-container/60">
                 <div className="flex items-center justify-between">
                   <div>
@@ -348,7 +241,6 @@ export default function SimulatePage() {
                       Subsidy applied to title registration
                     </span>
                   </div>
-
                   <span className="text-sm font-mono font-bold text-secondary bg-secondary/10 px-2 py-0.5 rounded">
                     {fee.toFixed(1)}% Reduced
                   </span>
@@ -364,14 +256,11 @@ export default function SimulatePage() {
                     const val = parseFloat(e.target.value);
                     setFee(val);
                     setActivePreset("Custom");
-                    setResults(
-                      computeLocalPreview(ceiling, val)
-                    );
+                    setResults(computeLocalPreview(ceiling, val));
                     scheduleSimulation(ceiling, val);
                   }}
                   className="w-full accent-secondary cursor-pointer"
                 />
-
                 <div className="flex justify-between text-[10px] font-mono text-on-surface-variant">
                   <span>0%</span>
                   <span>25%</span>
@@ -385,66 +274,48 @@ export default function SimulatePage() {
                 disabled={status === "loading"}
                 className="w-full bg-primary text-on-primary py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-primary-container transition-all shadow-sm flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-60"
               >
-                <span className="material-symbols-outlined text-[18px]">
-                  bolt
-                </span>
-
-                <span>
-                  {status === "loading"
-                    ? "Calculating..."
-                    : "Recalculate Projections"}
-                </span>
+                <span className="material-symbols-outlined text-[18px]">bolt</span>
+                <span>{status === "loading" ? "Calculating..." : "Recalculate Projections"}</span>
               </button>
 
               <p className="text-[11px] text-on-surface-variant leading-relaxed">
-                This is a simplified, transparent rules-based estimate —
-                not a full microsimulation. See the formula documented in
-                the backend for exact weights.
+                This is a simplified, transparent rules-based estimate — not a full microsimulation.
+                See the formula documented in the backend for exact weights.
               </p>
             </div>
           </div>
 
-          {/* Right Column */}
+          {/* Right Column: Projected Impact Metrics */}
           <div className="lg:col-span-7 space-y-4">
-
             {status === "error" && (
               <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm">
-                <p className="font-semibold mb-1">
-                  Simulation failed
-                </p>
+                <p className="font-semibold mb-1">Simulation failed</p>
                 <p className="text-xs">{errorMessage}</p>
               </div>
             )}
 
             {!results && status !== "error" && (
               <div className="p-12 rounded-xl bg-surface-container-lowest border border-surface-container text-center text-on-surface-variant">
-                <span className="material-symbols-outlined text-[32px] mb-3">
-                  bolt
-                </span>
-
+                <span className="material-symbols-outlined text-[32px] mb-3">bolt</span>
                 <p className="text-sm">
-                  Adjust the levers and click &quot;Recalculate
-                  Projections&quot; to see results.
+                  Adjust the levers and click &quot;Recalculate Projections&quot; to see results.
                 </p>
               </div>
             )}
 
             {results && (
               <>
-                {/* KPI Row */}
+                {/* Primary KPI Row */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
                   <div className="bg-surface-container-lowest p-5 rounded-xl border border-surface-container shadow-sm flex flex-col justify-between">
                     <span className="text-xs text-on-surface-variant font-semibold">
                       Dispute Reduction
                     </span>
-
                     <div className="my-2">
                       <span className="text-3xl font-extrabold text-secondary tracking-tight">
                         {results.disputeReductionPct}%
                       </span>
                     </div>
-
                     <span className="text-[11px] text-on-surface-variant font-medium">
                       Projected change vs baseline
                     </span>
@@ -454,13 +325,11 @@ export default function SimulatePage() {
                     <span className="text-xs text-on-surface-variant font-semibold">
                       Registration Uptake
                     </span>
-
                     <div className="my-2">
                       <span className="text-3xl font-extrabold text-primary tracking-tight">
                         {results.registrationUptakePct}%
                       </span>
                     </div>
-
                     <span className="text-[11px] text-on-surface-variant font-medium">
                       Projected formal transaction increase
                     </span>
@@ -470,13 +339,11 @@ export default function SimulatePage() {
                     <span className="text-xs text-on-surface-variant font-semibold">
                       Revenue Impact
                     </span>
-
                     <div className="my-2">
                       <span className="text-3xl font-extrabold text-primary tracking-tight">
                         {results.revenueImpactPct}%
                       </span>
                     </div>
-
                     <span className="text-[11px] text-on-surface-variant font-medium">
                       Projected treasury revenue change
                     </span>
@@ -489,27 +356,19 @@ export default function SimulatePage() {
                     <span className="text-xs font-bold text-primary uppercase tracking-wider">
                       Model Confidence Score
                     </span>
-
                     <span className="text-sm font-mono font-bold text-primary bg-surface-container px-2 py-0.5 rounded">
                       {(results.confidenceScore * 100).toFixed(0)}%
                     </span>
                   </div>
-
                   <div className="w-full bg-surface-container rounded-full h-2">
                     <div
                       className="bg-primary h-2 rounded-full transition-all duration-300"
-                      style={{
-                        width: `${
-                          results.confidenceScore * 100
-                        }%`,
-                      }}
+                      style={{ width: `${results.confidenceScore * 100}%` }}
                     />
                   </div>
-
                   <p className="text-[11px] text-on-surface-variant mt-2">
-                    Confidence scales with the magnitude of the proposed
-                    policy change, capped at 85% for this simplified
-                    rules-based model.
+                    Confidence scales with the magnitude of the proposed policy change, capped at
+                    85% for this simplified rules-based model.
                   </p>
                 </div>
               </>
